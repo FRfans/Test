@@ -1,0 +1,27 @@
+# DVC Configuration File
+# This file contains configuration for DVC remote storage and settings
+
+[core]
+    remote = storage
+    autostage = true
+    check_update = false
+
+[remote "storage"]
+    url = s3://your-mlops-bucket/dvc-storage
+    # For local development, you can use:
+    # url = /path/to/local/storage
+    
+[remote "local"]
+    url = ./dvc-storage
+
+[state]
+    save_informational = false
+
+[machine]
+    idle_timeout = 3600
+
+# Analytics and telemetry (optional)
+['remote "storage"']
+    access_key_id = ${AWS_ACCESS_KEY_ID}
+    secret_access_key = ${AWS_SECRET_ACCESS_KEY}
+    region = us-east-1

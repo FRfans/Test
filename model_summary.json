@@ -1,0 +1,14 @@
+{
+  "model_type": "RandomForestClassifier",
+  "feature_importances": {
+    "Time_spent_Alone": 0.04962507137434505,
+    "Stage_fear": 0.321432906933943,
+    "Social_event_attendance": 0.06560115627677952,
+    "Going_outside": 0.08682787162693688,
+    "Drained_after_socializing": 0.31741959665734015,
+    "Friends_circle_size": 0.07453346099957109,
+    "Post_frequency": 0.08455993613108437
+  },
+  "training_timestamp": "2025-07-16T20:45:47.002219",
+  "accuracy": 0.8986206896551724
+}
