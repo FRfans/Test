@@ -1,8 +1,0 @@
-              precision    recall  f1-score   support
-
-   Extrovert       0.90      0.91      0.90      1535
-   Introvert       0.90      0.89      0.89      1365
-
-    accuracy                           0.90      2900
-   macro avg       0.90      0.90      0.90      2900
-weighted avg       0.90      0.90      0.90      2900

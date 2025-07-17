@@ -18,6 +18,8 @@ import warnings
 import mlflow
 import mlflow.sklearn
 from mlflow.models import infer_signature
+import time
+from datetime import datetime
 
 # Import skops untuk menyimpan model yang kompatibel dengan Hugging Face Spaces
 import skops.io as sio
@@ -181,6 +183,9 @@ class PersonalityClassifier:
         mlflow.set_experiment("Personality Classification")
 
         with mlflow.start_run(run_name="RandomForest_PersonalityClassifier"):
+            # Track training start time
+            training_start_time = time.time()
+            
             self.load_and_explore_data()
             self.preprocess_data()
             self.visualize_data()
@@ -188,12 +193,22 @@ class PersonalityClassifier:
             model_results = self.train_best_model()
             accuracy, auc_score = self.evaluate_model(model_results)
 
+            # Calculate training duration
+            training_duration = time.time() - training_start_time
+
             best_params = model_results["Random Forest"]["best_params"]
             for param, value in best_params.items():
                 mlflow.log_param(param, value)
 
+            # Log training metadata
+            mlflow.log_param("training_duration", training_duration)
+            mlflow.log_param("training_date", datetime.now().isoformat())
+            mlflow.log_param("data_size", len(self.data))
+            mlflow.log_param("feature_count", len(self.X_train.columns))
+
             mlflow.log_metric("accuracy", accuracy)
             mlflow.log_metric("auc_score", auc_score)
+            mlflow.log_metric("training_duration_seconds", training_duration)
 
             # ✅ Tambahkan input example & signature
             input_example = self.X_test.iloc[:5]
@@ -207,10 +222,16 @@ class PersonalityClassifier:
                 signature=signature
             )
 
+            # Log artifacts
+            mlflow.log_artifact("Results/data_exploration.png")
+            mlflow.log_artifact("Results/model_evaluation.png")
+            mlflow.log_artifact("Results/metrics.txt")
+
             self.save_model()
 
             print("\n🚀 Tracking model selesai di MLflow!")
             print("📁 Lihat: http://localhost:5000")
+            print(f"⏱️ Training duration: {training_duration:.2f} seconds")
 
             return self.best_model, accuracy, auc_score
 

@@ -54,17 +54,18 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
-        pip install dvc[s3] mlflow boto3
+        pip install dvc mlflow boto3
         
-    - name: Configure DVC
+    - name: Configure DVC (Google Drive)
       env:
-        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        DVC_REMOTE_URL: ${{ secrets.DVC_REMOTE_URL }}
+        GDRIVE_CREDENTIALS_DATA: ${{ secrets.GDRIVE_CREDENTIALS_DATA }}
       run: |
-        dvc remote add -d storage $DVC_REMOTE_URL
-        dvc remote modify storage access_key_id $AWS_ACCESS_KEY_ID
-        dvc remote modify storage secret_access_key $AWS_SECRET_ACCESS_KEY
+        mkdir -p ~/.config/dvc/
+        echo "$GDRIVE_CREDENTIALS_DATA" > ~/.config/dvc/gdrive-user-credentials.json
+        dvc remote add -d gdrive_remote gdrive://1ZraXpPHKRaderVWn3KGNxSqibbTUv1zn
+        dvc remote modify gdrive_remote gdrive_use_service_account false
+        dvc remote modify gdrive_remote gdrive_credentials_file ~/.config/dvc/gdrive-user-credentials.json
+
         
     - name: Pull data with DVC
       run: |

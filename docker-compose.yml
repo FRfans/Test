@@ -1,0 +1,85 @@
+services:
+  # MLOps Training Container
+  mlops-training:
+    build: .
+    container_name: personality-training
+    volumes:
+      - ./Data:/app/Data
+      - ./Model:/app/Model
+      - ./Results:/app/Results
+      - ./mlruns:/app/mlruns
+    environment:
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+    command: python train.py
+    profiles:
+      - training
+    depends_on:
+      - mlflow
+
+  # MLOps App with Monitoring
+  mlops-app:
+    build: .
+    container_name: personality-app
+    ports:
+      - "7860:7860"  # Gradio app
+      - "8000:8000"  # Prometheus metrics
+    volumes:
+      - ./Data:/app/Data
+      - ./Model:/app/Model
+      - ./Results:/app/Results
+      - ./mlruns:/app/mlruns
+    environment:
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+    command: >
+      sh -c "python monitoring.py &
+             python App/app.py"
+    depends_on:
+      - mlflow
+      - prometheus
+
+  # MLflow Tracking Server
+  mlflow:
+    image: python:3.9-slim
+    container_name: mlflow-server
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./mlruns:/mlruns
+      - ./artifacts:/artifacts
+    command: >
+      sh -c "pip install mlflow[extras] &&
+             mlflow server --host 0.0.0.0 --port 5000 --backend-store-uri file:///mlruns --default-artifact-root file:///artifacts"
+
+  # Prometheus
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+
+  # Grafana
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana-storage:/var/lib/grafana
+      - ./grafana_dashboard.json:/var/lib/grafana/dashboards/mlops-dashboard.json
+      - ./grafana/provisioning:/etc/grafana/provisioning
+    depends_on:
+      - prometheus
+
+volumes:
+  grafana-storage:
