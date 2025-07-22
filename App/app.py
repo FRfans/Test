@@ -63,7 +63,7 @@ class PersonalityClassifierApp:
                     break
 
             if model_path:
-                unknown_types = get_untrusted_types(file=model_path)
+                unknown_types = get_untrusted_types()
                 self.model = sio.load(model_path, trusted=unknown_types)
                 print(f"✅ Model berhasil dimuat dari: {model_path}")
             else:
@@ -87,7 +87,7 @@ class PersonalityClassifierApp:
                     break
 
             if encoder_path:
-                unknown_types = get_untrusted_types(file=encoder_path)
+                unknown_types = get_untrusted_types()
                 self.label_encoder = sio.load(encoder_path, trusted=unknown_types)
                 print(f"✅ Label encoder berhasil dimuat dari: {encoder_path}")
             else:
@@ -111,7 +111,7 @@ class PersonalityClassifierApp:
                     break
 
             if features_path:
-                unknown_types = get_untrusted_types(file=features_path)
+                unknown_types = get_untrusted_types()
                 self.feature_names = sio.load(features_path, trusted=unknown_types)
                 print(f"✅ Feature names berhasil dimuat dari: {features_path}")
                 print(f"Features: {self.feature_names}")

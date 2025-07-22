@@ -229,7 +229,7 @@ jobs:
             
             try:
                 model = sio.load('Model/personality_classifier.skops', 
-                               trusted=sio.get_untrusted_types('Model/personality_classifier.skops'))
+                               trusted=sio.get_untrusted_types())
                 
                 # Test prediction
                 X_test = np.random.rand(5, 5)

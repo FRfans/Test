@@ -228,7 +228,7 @@ validate-artifacts:
 	python -c "\
 	import os; import skops.io as sio; \
 	files = ['Model/personality_classifier.skops', 'Model/label_encoder.skops', 'Model/feature_names.skops']; \
-	[print(f'✅ {f} validated') if os.path.exists(f) and sio.load(f, trusted=sio.get_untrusted_types(f)) else exit(1) for f in files]"
+	[print(f'✅ {f} validated') if os.path.exists(f) and sio.load(f, trusted=sio.get_untrusted_types()) else exit(1) for f in files]"
 
 # Data and Drift Management
 generate-synthetic:
@@ -276,7 +276,7 @@ start-monitoring-stack:
 benchmark:
 	python -c "\
 	import time, numpy as np, skops.io as sio, os; \
-	model = sio.load('Model/personality_classifier.skops', trusted=sio.get_untrusted_types('Model/personality_classifier.skops')) if os.path.exists('Model/personality_classifier.skops') else exit(1); \
+	model = sio.load('Model/personality_classifier.skops', trusted=sio.get_untrusted_types()) if os.path.exists('Model/personality_classifier.skops') else exit(1); \
 	[print(f'Size {s}: {s/(time.time()-(t:=time.time())or(model.predict(np.random.rand(s,5)))and time.time()):.2f} pred/sec') for s in [1,10,100,1000] for t in [time.time()]]"
 
 health-check:

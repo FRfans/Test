@@ -204,7 +204,7 @@ class PersonalityClassifier:
         sio.dump(self.label_encoder, "Model/label_encoder.skops")
         sio.dump(list(self.X_train.columns), "Model/feature_names.skops")
         print("Model & artifacts disimpan.")
-        unknown_types = get_untrusted_types(file="Model/personality_classifier.skops")
+        unknown_types = get_untrusted_types()
 
         try:
             sio.load("Model/personality_classifier.skops", trusted=unknown_types)

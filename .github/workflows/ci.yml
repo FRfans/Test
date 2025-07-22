@@ -182,7 +182,7 @@ jobs:
               if os.path.exists(file):
                   print(f'✅ {file} created')
                   try:
-                      model = sio.load(file, trusted=sio.get_untrusted_types(file))
+                      model = sio.load(file, trusted=sio.get_untrusted_types())
                       print(f'✅ {file} loads correctly')
                   except Exception as e:
                       print(f'❌ Error loading {file}: {e}')
@@ -241,7 +241,7 @@ jobs:
           
           if os.path.exists('Model/personality_classifier.skops'):
               model = sio.load('Model/personality_classifier.skops', 
-                              trusted=sio.get_untrusted_types('Model/personality_classifier.skops'))
+                              trusted=sio.get_untrusted_types())
               
               # Test different batch sizes
               for size in [1, 10, 100, 1000]:
