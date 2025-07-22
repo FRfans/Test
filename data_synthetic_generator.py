@@ -17,14 +17,6 @@ except ImportError:
     CTGAN_AVAILABLE = False
     print("SDV not available, will use statistical sampling")
 
-# Import feature utilities for consistency
-try:
-    from feature_utils import validate_and_align_features, get_expected_features
-    FEATURE_UTILS_AVAILABLE = True
-except ImportError:
-    print("Warning: feature_utils not available in data_synthetic_generator")
-    FEATURE_UTILS_AVAILABLE = False
-
 warnings.filterwarnings("ignore")
 import numpy as np
 import os

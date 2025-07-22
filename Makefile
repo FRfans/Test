@@ -213,7 +213,6 @@ ci-data-setup:
 
 ci-full:
 	make ci-data-setup
-	make validate-features
 	make format-check
 	make lint
 	make security-scan
@@ -252,84 +251,22 @@ validate-artifacts:
 			exit(1); \
 	print('✅ All artifacts validated successfully')"
 
-validate-features:
-	@echo "🔍 Validating feature consistency..."
-	@python -c "\
-	try: \
-		from feature_utils import get_expected_features, create_sample_data_with_all_features; \
-		expected = get_expected_features(); \
-		print(f'✅ Expected features ({len(expected)}): {expected}'); \
-		sample_data = create_sample_data_with_all_features(100); \
-		print(f'✅ Sample data shape: {sample_data.shape}'); \
-		print('✅ Feature utilities working correctly'); \
-	except Exception as e: \
-		print(f'❌ Feature utilities error: {e}'); \
-		import traceback; \
-		traceback.print_exc(); \
-		exit(1)"
-
 # Data and Drift Management
-test-imports:
-	@echo "🧪 Testing critical imports..."
-	@python -c "\
-	import sys; \
-	modules = ['pandas', 'numpy', 'sklearn', 'skops', 'feature_utils', 'data_drift', 'data_synthetic_generator', 'train']; \
-	failed = []; \
-	for module in modules: \
-		try: \
-			__import__(module); \
-			print(f'✅ {module}'); \
-		except ImportError as e: \
-			print(f'❌ {module}: {e}'); \
-			failed.append(module); \
-	if failed: \
-		print(f'❌ Failed imports: {failed}'); \
-		sys.exit(1); \
-	else: \
-		print('✅ All imports successful')"
-
 generate-synthetic:
-	@echo "🔄 Generating synthetic data..."
-	@python -c "\
-	try: \
-		from data_synthetic_generator import adaptiveDriftGenerator; \
-		import os; \
-		if not os.path.exists('Data/personality_datasert.csv'): \
-			print('❌ Original data not found'); \
-			exit(1); \
-		generator = adaptiveDriftGenerator('Data/personality_datasert.csv'); \
-		data, drift_info = generator.generate_drifted_data(n_new_samples=1000); \
-		data.to_csv('Data/synthetic_ctgan_data.csv', index=False); \
-		print(f'✅ Generated: {data.shape} with {drift_info[\"drift_type\"]}'); \
-	except Exception as e: \
-		print(f'❌ Synthetic generation failed: {e}'); \
-		import traceback; \
-		traceback.print_exc(); \
-		exit(1)"
+	python -c "\
+	from data_synthetic_generator import adaptiveDriftGenerator; import os; \
+	generator = adaptiveDriftGenerator('Data/personality_datasert.csv') if os.path.exists('Data/personality_datasert.csv') else exit(1); \
+	data, drift_info = generator.generate_drifted_data(n_new_samples=1000); \
+	data.to_csv('Data/synthetic_ctgan_data.csv', index=False); \
+	print(f'✅ Generated: {data.shape} with {drift_info[\"drift_type\"]}')"
 
 drift-detect:
-	@echo "🔍 Running data drift detection..."
-	@python -c "\
-	try: \
-		from data_drift import DataDriftDetector; \
-		import os; \
-		if not os.path.exists('Data/personality_datasert.csv'): \
-			print('❌ Reference data not found'); \
-			exit(1); \
-		detector = DataDriftDetector(reference_data_path='Data/personality_datasert.csv'); \
-		if os.path.exists('Data/synthetic_ctgan_data.csv'): \
-			detector.load_current_data('Data/synthetic_ctgan_data.csv'); \
-		else: \
-			print('⚠️ Synthetic data not found, using reference as current'); \
-			detector.load_current_data('Data/personality_datasert.csv'); \
-		results = detector.detect_drift(); \
-		[print(f'{k}: {v}') for k,v in results.items()]; \
-		print('✅ Drift detection completed'); \
-	except Exception as e: \
-		print(f'❌ Drift detection failed: {e}'); \
-		import traceback; \
-		traceback.print_exc(); \
-		exit(1)"
+	python -c "\
+	from data_drift import DataDriftDetector; import os; \
+	detector = DataDriftDetector(reference_data_path='Data/personality_datasert.csv'); \
+	detector.load_current_data('Data/synthetic_ctgan_data.csv') if os.path.exists('Data/synthetic_ctgan_data.csv') else exit(1); \
+	results = detector.detect_drift(); \
+	[print(f'{k}: {v}') for k,v in results.items()]"
 
 # Testing Commands
 ci-test:
@@ -382,15 +319,9 @@ benchmark:
 	untrusted_types = get_untrusted_types(file='Model/personality_classifier.skops'); \
 	model = sio.load('Model/personality_classifier.skops', trusted=untrusted_types); \
 	print('✅ Model loaded successfully'); \
-	try: \
-		from feature_utils import get_expected_features; \
-		n_features = len(get_expected_features()); \
-	except: \
-		n_features = 11; \
-	print(f'Using {n_features} features for benchmark'); \
 	test_sizes = [1, 10, 100, 1000]; \
 	for size in test_sizes: \
-		X_test = np.random.rand(size, n_features); \
+		X_test = np.random.rand(size, 5); \
 		start_time = time.time(); \
 		predictions = model.predict(X_test); \
 		duration = time.time() - start_time; \
@@ -410,21 +341,13 @@ health-check:
 		('Features exists', os.path.exists('Model/feature_names.skops')), \
 		('Results exists', os.path.exists('Results/metrics.txt')), \
 		('Training script exists', os.path.exists('train.py')), \
-		('App script exists', os.path.exists('App/app.py')), \
-		('Feature utils exists', os.path.exists('feature_utils.py')) \
+		('App script exists', os.path.exists('App/app.py')) \
 	]; \
 	all_passed = True; \
 	for check_name, passed in checks: \
 		status = '✅' if passed else '❌'; \
 		print(f'{status} {check_name}'); \
 		if not passed: all_passed = False; \
-	try: \
-		from feature_utils import get_expected_features; \
-		features = get_expected_features(); \
-		print(f'✅ Feature utils functional ({len(features)} features)'); \
-	except Exception as e: \
-		print(f'❌ Feature utils error: {e}'); \
-		all_passed = False; \
 	print('\\n' + ('✅ All health checks passed!' if all_passed else '❌ Some health checks failed!')); \
 	exit(0 if all_passed else 1)"
 
@@ -455,16 +378,13 @@ help:
 	@echo "  train                - Train the model"
 	@echo "  eval                 - Evaluate model and generate report"
 	@echo "  validate-artifacts   - Validate model artifacts"
-	@echo "  validate-features    - Validate feature consistency"
 	@echo ""
 	@echo "🧪 Code Quality & Testing:"
 	@echo "  format               - Format code with Black"
 	@echo "  format-check         - Check code formatting"
 	@echo "  lint                 - Run code linting"
 	@echo "  security-scan        - Run security scans"
-	@echo "  test-imports         - Test critical module imports"
 	@echo "  ci-full              - Run complete CI pipeline locally"
-	@echo "  ci-test              - Run comprehensive CI test suite"
 	@echo ""
 	@echo "🔄 Data & Drift:"
 	@echo "  generate-synthetic   - Generate synthetic data"
@@ -490,6 +410,6 @@ help:
 	@echo "  clean                - Clean temporary files"
 	@echo "  update-branch        - Update git branch with results"
 
-.PHONY: install format train eval deploy run monitoring ci-setup ci-full ci-test lint security-scan \
-		validate-artifacts validate-features test-imports generate-synthetic drift-detect benchmark health-check \
+.PHONY: install format train eval deploy run monitoring ci-setup ci-full lint security-scan \
+		validate-artifacts generate-synthetic drift-detect benchmark health-check \
 		docker-build docker-compose-up clean help

@@ -10,15 +10,6 @@ from scipy.stats import ks_2samp, chi2_contingency, levene
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import cross_val_score
 import warnings
-
-# Import feature utilities for consistency
-try:
-    from feature_utils import validate_and_align_features, get_expected_features
-    FEATURE_UTILS_AVAILABLE = True
-except ImportError:
-    print("Warning: feature_utils not available in data_drift")
-    FEATURE_UTILS_AVAILABLE = False
-
 warnings.filterwarnings('ignore')
 
 
@@ -48,39 +39,21 @@ class DataDriftDetector:
     def load_reference_data(self):
         print("Loading reference data...")
         self.reference_data = pd.read_csv(self.reference_data_path)
-        
-        # Validate and align features using utility function
-        if FEATURE_UTILS_AVAILABLE:
-            self.reference_data = validate_and_align_features(self.reference_data, add_missing=True)
-        
-        # Handle categorical columns
         categorical_columns = ["Stage_fear", "Drained_after_socializing"]
         for col in categorical_columns:
             if col in self.reference_data.columns:
-                if self.reference_data[col].dtype == 'object':
-                    self.reference_data[col] = self.reference_data[col].map({"Yes": 1, "No": 0})
-        
+                self.reference_data[col] = self.reference_data[col].map({"Yes": 1, "No": 0})
         print(f"Reference data shape: {self.reference_data.shape}")
-        print(f"Reference columns: {list(self.reference_data.columns)}")
         return self.reference_data
 
     def load_current_data(self, current_data_path="Data/synthetic_ctgan_data.csv"):
         print("Loading current data...")
         self.current_data = pd.read_csv(current_data_path)
-        
-        # Validate and align features using utility function
-        if FEATURE_UTILS_AVAILABLE:
-            self.current_data = validate_and_align_features(self.current_data, add_missing=True)
-        
-        # Handle categorical columns
         categorical_columns = ["Stage_fear", "Drained_after_socializing"]
         for col in categorical_columns:
             if col in self.current_data.columns:
-                if self.current_data[col].dtype == 'object':
-                    self.current_data[col] = self.current_data[col].map({"Yes": 1, "No": 0})
-        
+                self.current_data[col] = self.current_data[col].map({"Yes": 1, "No": 0})
         print(f"Current data shape: {self.current_data.shape}")
-        print(f"Current columns: {list(self.current_data.columns)}")
         return self.current_data
 
     def detect_drift(self):

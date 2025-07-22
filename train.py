@@ -25,9 +25,6 @@ from datetime import datetime
 # Import skops untuk menyimpan model yang kompatibel dengan Hugging Face Spaces
 import skops.io as sio
 from skops.io import get_untrusted_types
-
-# Import feature utilities for consistency
-from feature_utils import validate_and_align_features, create_sample_data_with_all_features
 import skops.io as sio
 from skops.io import get_untrusted_types
 
@@ -57,11 +54,23 @@ class PersonalityClassifier:
             print(f"❌ Data file not found: {self.data_path}")
             print("🔧 Creating sample dataset for CI/CD...")
             
-            # Create sample data with all expected features using utility function
+            # Create sample data for CI/CD
             os.makedirs(os.path.dirname(self.data_path), exist_ok=True)
-            sample_df = create_sample_data_with_all_features(n_samples=1000, random_seed=42)
+            np.random.seed(42)
+            n_samples = 1000
+            
+            sample_data = {
+                'Time_spent_Alone': np.random.randint(0, 12, n_samples),
+                'Time_spent_with_family': np.random.randint(0, 12, n_samples),
+                'Time_spent_with_friends': np.random.randint(0, 12, n_samples),
+                'Anxiety_rating': np.random.randint(0, 12, n_samples),
+                'Social_media_usage': np.random.randint(0, 12, n_samples),
+                'Personality': np.random.choice(['Introvert', 'Extrovert'], n_samples)
+            }
+            
+            sample_df = pd.DataFrame(sample_data)
             sample_df.to_csv(self.data_path, index=False)
-            print(f"✅ Created sample dataset: {sample_df.shape} with {len(sample_df.columns)-1} features")
+            print(f"✅ Created sample dataset: {sample_df.shape}")
 
         new_data = pd.read_csv(self.data_path)
         print(f"Data baru: {new_data.shape}")
@@ -81,33 +90,13 @@ class PersonalityClassifier:
     def preprocess_data(self):
         print("\nPreprocessing data...")
         self.data = self.data.dropna()
-        
-        # Use utility function to validate and align features
-        self.data = validate_and_align_features(self.data, add_missing=True)
-        
-        # Handle categorical columns
         categorical_columns = ["Stage_fear", "Drained_after_socializing"]
         for col in categorical_columns:
             if col in self.data.columns:
-                # Handle both string and numeric categorical values
-                if self.data[col].dtype == 'object':
-                    self.data[col] = self.data[col].map({"Yes": 1, "No": 0})
-                # Ensure values are 0 or 1
-                self.data[col] = self.data[col].astype(int)
-        
-        # Prepare features and target
+                self.data[col] = self.data[col].map({"Yes": 1, "No": 0})
         X = self.data.drop("Personality", axis=1)
         y = self.data["Personality"]
-        
-        # Store feature names for consistency validation
-        self.feature_names = list(X.columns)
-        print(f"✅ Feature set: {len(self.feature_names)} features")
-        print(f"Features: {self.feature_names}")
-        
-        # Encode target
         y_encoded = self.label_encoder.fit_transform(y)
-        
-        # Split data
         self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(
             X, y_encoded, test_size=0.2, random_state=42, stratify=y_encoded
         )
@@ -213,36 +202,18 @@ class PersonalityClassifier:
     def save_model(self):
         print("\nMenyimpan model...")
         os.makedirs("Model", exist_ok=True)
-        
-        # Save model and related artifacts
         sio.dump(self.best_model, "Model/personality_classifier.skops")
         sio.dump(self.label_encoder, "Model/label_encoder.skops")
-        
-        # Save feature names for consistency validation
-        feature_names_to_save = getattr(self, 'feature_names', list(self.X_train.columns))
-        sio.dump(feature_names_to_save, "Model/feature_names.skops")
-        
-        # Also save as JSON for easier access
-        import json
-        with open("Model/feature_names.json", "w") as f:
-            json.dump(feature_names_to_save, f, indent=2)
-        
-        print(f"✅ Model & artifacts saved with {len(feature_names_to_save)} features")
-        print(f"Feature order: {feature_names_to_save}")
+        sio.dump(list(self.X_train.columns), "Model/feature_names.skops")
+        print("Model & artifacts disimpan.")
 
         try:
             # Validate saved model with get_untrusted_types for CI/CD
             untrusted_types = get_untrusted_types(file="Model/personality_classifier.skops")
-            loaded_model = sio.load("Model/personality_classifier.skops", trusted=untrusted_types)
-            
-            # Check if model expects the right number of features
-            if hasattr(loaded_model, 'named_steps') and 'scaler' in loaded_model.named_steps:
-                expected_features = loaded_model.named_steps['scaler'].n_features_in_
-                print(f"✅ Model expects {expected_features} features")
-            
-            print("✅ Model valid dan siap deploy!")
+            sio.load("Model/personality_classifier.skops", trusted=untrusted_types)
+            print("Model valid dan siap deploy!")
         except Exception as e:
-            print(f"❌ Gagal load model: {e}")
+            print(f" Gagal load model: {e}")
 
     def run_complete_pipeline(self):
         print("=" * 60)

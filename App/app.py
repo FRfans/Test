@@ -6,19 +6,7 @@ from skops.io import get_untrusted_types
 import os
 import threading
 import time
-import sys
 from http.server import HTTPServer, BaseHTTPRequestHandler
-
-# Add parent directory to Python path to import feature_utils
-parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.append(parent_dir)
-
-try:
-    from feature_utils import load_feature_names_from_model, validate_model_input
-    FEATURE_UTILS_AVAILABLE = True
-except ImportError:
-    print("Warning: feature_utils not available, using fallback methods")
-    FEATURE_UTILS_AVAILABLE = False
 
 
 # Health check endpoint for CI/CD
@@ -157,18 +145,10 @@ class PersonalityClassifierApp:
                 print(f"✅ Feature names berhasil dimuat dari: {features_path}")
                 print(f"Features: {self.feature_names}")
             else:
-                # Try to load feature names using utility function
-                if FEATURE_UTILS_AVAILABLE:
-                    try:
-                        self.feature_names = load_feature_names_from_model()
-                        print(f"✅ Feature names loaded using utility function")
-                        print(f"Features: {self.feature_names}")
-                    except Exception as e:
-                        print(f"Warning: Could not load feature names using utility: {e}")
-                        self.feature_names = None
-                else:
-                    print(f"❌ File feature names tidak ditemukan di lokasi manapun: {features_possible_paths}")
-                    self.feature_names = None
+                print(
+                    f"❌ File feature names tidak ditemukan di lokasi manapun: {features_possible_paths}"
+                )
+                return False
                 return False
 
             return True
@@ -256,11 +236,6 @@ class PersonalityClassifierApp:
 
             # Reshape untuk prediksi
             input_array = np.array(input_data).reshape(1, -1)
-            
-            # Validate input using utility function if available
-            if FEATURE_UTILS_AVAILABLE:
-                if not validate_model_input(input_array, len(self.feature_names)):
-                    return f"❌ Feature validation failed", None, False
             
             print(f"✅ Input array shape: {input_array.shape}")
             print(f"Features: {self.feature_names}")
