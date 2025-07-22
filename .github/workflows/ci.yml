@@ -262,8 +262,12 @@ jobs:
               
               if os.path.exists('Data/synthetic_ctgan_data.csv') and os.path.exists('Data/personality_datasert.csv'):
                   print('🔍 Running drift detection...')
-                  detector = DataDriftDetector()
-                  results = detector.detect_drift('Data/synthetic_ctgan_data.csv')
+                  # Initialize detector with reference data path
+                  detector = DataDriftDetector(reference_data_path='Data/personality_datasert.csv')
+                  # Load current data first
+                  detector.load_current_data('Data/synthetic_ctgan_data.csv')
+                  # Call detect_drift without arguments
+                  results = detector.detect_drift()
                   
                   # Save results
                   with open('drift_results.json', 'w') as f:

@@ -263,8 +263,9 @@ generate-synthetic:
 drift-detect:
 	python -c "\
 	from data_drift import DataDriftDetector; import os; \
-	detector = DataDriftDetector(); \
-	results = detector.detect_drift('Data/synthetic_ctgan_data.csv') if os.path.exists('Data/synthetic_ctgan_data.csv') else exit(1); \
+	detector = DataDriftDetector(reference_data_path='Data/personality_datasert.csv'); \
+	detector.load_current_data('Data/synthetic_ctgan_data.csv') if os.path.exists('Data/synthetic_ctgan_data.csv') else exit(1); \
+	results = detector.detect_drift(); \
 	[print(f'{k}: {v}') for k,v in results.items()]"
 
 # Application and Monitoring
