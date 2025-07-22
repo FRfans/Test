@@ -19,11 +19,12 @@ scrape_configs:
     scrape_interval: 10s
     metrics_path: '/metrics'
     metric_relabel_configs:
-      # Drop all prometheus internal metrics
+      # Keep all MLOps relevant metrics including new synthetic data metrics
       - source_labels: [__name__]
-        regex: 'prometheus_.*|go_.*|process_.*|net_.*|python_.*'
-        action: drop
-      # Keep only MLOps relevant metrics
-      - source_labels: [__name__]
-        regex: 'model_.*|system_.*|data_drift_.*|dataset_drift_.*|predictions_.*|prediction_duration_.*'
+        regex: 'model_.*|system_.*|data_drift_.*|dataset_drift_.*|predictions_.*|prediction_duration_.*|synthetic_.*|monitoring_cycles_.*'
         action: keep
+      # Drop prometheus internal metrics
+      - source_labels: [__name__]
+        regex: 'prometheus_.*|go_.*|process_.*|net_conntrack_.*|python_gc_.*'
+        action: drop
+

@@ -19,6 +19,7 @@ import mlflow
 import mlflow.sklearn
 from mlflow.models import infer_signature
 import time
+import argparse
 from datetime import datetime
 
 # Import skops untuk menyimpan model yang kompatibel dengan Hugging Face Spaces
@@ -29,8 +30,10 @@ warnings.filterwarnings("ignore")
 
 
 class PersonalityClassifier:
-    def __init__(self, data_path="Data/personality_datasert.csv"):
+    def __init__(self, data_path="Data/personality_datasert.csv", retrain=False, old_data_path=None):
         self.data_path = data_path
+        self.retrain = retrain
+        self.old_data_path = old_data_path
         self.data = None
         self.X_train = None
         self.X_test = None
@@ -40,13 +43,24 @@ class PersonalityClassifier:
         self.scaler = StandardScaler()
         self.label_encoder = LabelEncoder()
 
+
     def load_and_explore_data(self):
         print("Memuat dataset...")
-        self.data = pd.read_csv(self.data_path)
 
-        print(f"Ukuran dataset: {self.data.shape}")
+        new_data = pd.read_csv(self.data_path)
+        print(f"Data baru: {new_data.shape}")
+
+        if self.retrain and self.old_data_path and os.path.exists(self.old_data_path):
+            print(f"Gabungkan dengan data lama dari: {self.old_data_path}")
+            old_data = pd.read_csv(self.old_data_path)
+            self.data = pd.concat([old_data, new_data], ignore_index=True)
+            print(f"Total data setelah digabung: {self.data.shape}")
+        else:
+            self.data = new_data
+
         print("\nDistribusi target:")
         print(self.data["Personality"].value_counts())
+
 
     def preprocess_data(self):
         print("\nPreprocessing data...")
@@ -171,9 +185,9 @@ class PersonalityClassifier:
 
         try:
             sio.load("Model/personality_classifier.skops", trusted=unknown_types)
-            print("✓ Model valid dan siap deploy!")
+            print("Model valid dan siap deploy!")
         except Exception as e:
-            print(f"❌ Gagal load model: {e}")
+            print(f" Gagal load model: {e}")
 
     def run_complete_pipeline(self):
         print("=" * 60)
@@ -229,17 +243,30 @@ class PersonalityClassifier:
 
             self.save_model()
 
-            print("\n🚀 Tracking model selesai di MLflow!")
-            print("📁 Lihat: http://localhost:5000")
-            print(f"⏱️ Training duration: {training_duration:.2f} seconds")
+            print("\n Tracking model selesai di MLflow!")
+            print(" Lihat: http://localhost:5000")
+            print(f"Training duration: {training_duration:.2f} seconds")
 
             return self.best_model, accuracy, auc_score
+    
+def parse_args():
+    parser = argparse.ArgumentParser(description="Training atau retraining Personality Classifier")
+    parser.add_argument('--data_path', type=str, default="Data/personality_datasert.csv", help="Path ke data baru")
+    parser.add_argument('--old_data_path', type=str, default=None, help="Path ke data lama (jika retrain)")
+    parser.add_argument('--retrain', action='store_true', help="Aktifkan retrain dengan data baru")
+    return parser.parse_args()
 
 
 def main():
-    classifier = PersonalityClassifier()
+    args = parse_args()
+    classifier = PersonalityClassifier(
+        data_path=args.data_path,
+        retrain=args.retrain,
+        old_data_path=args.old_data_path
+    )
     model, acc, auc = classifier.run_complete_pipeline()
     return model, acc, auc
+
 
 
 if __name__ == "__main__":

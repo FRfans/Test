@@ -111,3 +111,5 @@ coverage.xml
 *.cover
 .hypothesis/
 .pytest_cache/
+/Result
+/Results
