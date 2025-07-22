@@ -2,6 +2,7 @@ import gradio as gr
 import numpy as np
 import pandas as pd
 import skops.io as sio
+from skops.io import get_untrusted_types
 import os
 import threading
 import time
@@ -91,7 +92,8 @@ class PersonalityClassifierApp:
                     break
 
             if model_path:
-                self.model = sio.load(model_path, trusted=True)
+                untrusted_types = get_untrusted_types(file=model_path)
+                self.model = sio.load(model_path, trusted=untrusted_types)
                 print(f"✅ Model berhasil dimuat dari: {model_path}")
             else:
                 print(
@@ -114,7 +116,8 @@ class PersonalityClassifierApp:
                     break
 
             if encoder_path:
-                self.label_encoder = sio.load(encoder_path, trusted=True)
+                untrusted_types = get_untrusted_types(file=encoder_path)
+                self.label_encoder = sio.load(encoder_path, trusted=untrusted_types)
                 print(f"✅ Label encoder berhasil dimuat dari: {encoder_path}")
             else:
                 print(
@@ -137,7 +140,8 @@ class PersonalityClassifierApp:
                     break
 
             if features_path:
-                self.feature_names = sio.load(features_path, trusted=True)
+                untrusted_types = get_untrusted_types(file=features_path)
+                self.feature_names = sio.load(features_path, trusted=untrusted_types)
                 print(f"✅ Feature names berhasil dimuat dari: {features_path}")
                 print(f"Features: {self.feature_names}")
             else:

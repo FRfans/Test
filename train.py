@@ -24,6 +24,7 @@ from datetime import datetime
 
 # Import skops untuk menyimpan model yang kompatibel dengan Hugging Face Spaces
 import skops.io as sio
+from skops.io import get_untrusted_types
 
 warnings.filterwarnings("ignore")
 
@@ -205,8 +206,9 @@ class PersonalityClassifier:
         print("Model & artifacts disimpan.")
 
         try:
-            # Validate saved model with trusted=True for CI/CD
-            sio.load("Model/personality_classifier.skops", trusted=True)
+            # Validate saved model with get_untrusted_types for CI/CD
+            untrusted_types = get_untrusted_types(file="Model/personality_classifier.skops")
+            sio.load("Model/personality_classifier.skops", trusted=untrusted_types)
             print("Model valid dan siap deploy!")
         except Exception as e:
             print(f" Gagal load model: {e}")

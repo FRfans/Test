@@ -184,6 +184,7 @@ jobs:
           python -c "
           import os
           import skops.io as sio
+          from skops.io import get_untrusted_types
           
           model_files = [
               'Model/personality_classifier.skops',
@@ -195,8 +196,9 @@ jobs:
               if os.path.exists(file):
                   print(f'✅ {file} created')
                   try:
-                      # Use safe load without trusted parameter
-                      model = sio.load(file, trusted=True)
+                      # Get untrusted types first, then load with trusted types
+                      untrusted_types = get_untrusted_types(file=file)
+                      model = sio.load(file, trusted=untrusted_types)
                       print(f'✅ {file} loads correctly')
                   except Exception as e:
                       print(f'❌ Error loading {file}: {e}')
@@ -283,11 +285,13 @@ jobs:
           import time
           import numpy as np
           import skops.io as sio
+          from skops.io import get_untrusted_types
           import os
           
           if os.path.exists('Model/personality_classifier.skops'):
-              model = sio.load('Model/personality_classifier.skops', 
-                              trusted=True)
+              # Get untrusted types first, then load
+              untrusted_types = get_untrusted_types(file='Model/personality_classifier.skops')
+              model = sio.load('Model/personality_classifier.skops', trusted=untrusted_types)
               
               # Test different batch sizes
               for size in [1, 10, 100, 1000]:

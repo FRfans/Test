@@ -227,7 +227,7 @@ security-scan:
 validate-artifacts:
 	@echo "🔍 Validating model artifacts..."
 	@python -c "\
-	import os; import skops.io as sio; \
+	import os; import skops.io as sio; from skops.io import get_untrusted_types; \
 	files = ['Model/personality_classifier.skops', 'Model/label_encoder.skops', 'Model/feature_names.skops']; \
 	missing_files = [f for f in files if not os.path.exists(f)]; \
 	if missing_files: \
@@ -235,7 +235,14 @@ validate-artifacts:
 		exit(1); \
 	else: \
 		print('✅ All required files exist'); \
-	[print(f'✅ {f} loads correctly') if sio.load(f, trusted=True) else (print(f'❌ {f} failed to load'), exit(1)) for f in files]; \
+	for f in files: \
+		try: \
+			untrusted_types = get_untrusted_types(file=f); \
+			model = sio.load(f, trusted=untrusted_types); \
+			print(f'✅ {f} loads correctly'); \
+		except Exception as e: \
+			print(f'❌ {f} failed to load: {e}'); \
+			exit(1); \
 	print('✅ All artifacts validated successfully')"
 
 # Data and Drift Management
@@ -284,11 +291,12 @@ start-monitoring-stack:
 benchmark:
 	@echo "📊 Running performance benchmark..."
 	@python -c "\
-	import time, numpy as np, skops.io as sio, os; \
+	import time, numpy as np, skops.io as sio, os; from skops.io import get_untrusted_types; \
 	if not os.path.exists('Model/personality_classifier.skops'): \
 		print('❌ Model file not found'); \
 		exit(1); \
-	model = sio.load('Model/personality_classifier.skops', trusted=True); \
+	untrusted_types = get_untrusted_types(file='Model/personality_classifier.skops'); \
+	model = sio.load('Model/personality_classifier.skops', trusted=untrusted_types); \
 	print('✅ Model loaded successfully'); \
 	test_sizes = [1, 10, 100, 1000]; \
 	for size in test_sizes: \
