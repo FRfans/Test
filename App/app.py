@@ -8,6 +8,15 @@ import threading
 import time
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
+# Try to import feature validator if available
+try:
+    from feature_validator import FeatureValidator
+    FEATURE_VALIDATOR_AVAILABLE = True
+    print("✅ Feature validator imported successfully")
+except ImportError:
+    FEATURE_VALIDATOR_AVAILABLE = False
+    print("⚠️ Feature validator not available, using fallback validation")
+
 
 # Health check endpoint for CI/CD
 class HealthHandler(BaseHTTPRequestHandler):
@@ -208,28 +217,42 @@ class PersonalityClassifierApp:
             input_data = []
             
             # Ensure we have the expected feature order
-            expected_features = [
-                'Time_spent_Alone', 'Stage_fear', 'Social_event_attendance', 
-                'Going_outside', 'Drained_after_socializing', 'Friends_circle_size', 
-                'Post_frequency'
-            ]
-            
-            # If loaded feature names don't match expected, use expected order
-            if self.feature_names != expected_features:
-                print(f"⚠️ Feature name mismatch!")
-                print(f"Expected: {expected_features}")
-                print(f"Loaded: {self.feature_names}")
-                # Use expected features for consistency
-                features_to_use = expected_features
+            if FEATURE_VALIDATOR_AVAILABLE:
+                # Use feature validator for robust validation
+                is_valid, issues, feature_array = FeatureValidator.validate_prediction_input(user_input_mapping)
+                
+                if not is_valid:
+                    return f"❌ Input validation failed: {', '.join(issues)}", None, False
+                
+                input_data = feature_array
+                features_to_use = FeatureValidator.CANONICAL_FEATURES
+                
+                print(f"✅ Feature validation passed using FeatureValidator")
             else:
-                features_to_use = self.feature_names
-            
-            # Build input array in correct order
-            for feature in features_to_use:
-                if feature in user_input_mapping:
-                    input_data.append(user_input_mapping[feature])
+                # Fallback validation
+                expected_features = [
+                    'Time_spent_Alone', 'Stage_fear', 'Social_event_attendance', 
+                    'Going_outside', 'Drained_after_socializing', 'Friends_circle_size', 
+                    'Post_frequency'
+                ]
+                
+                # If loaded feature names don't match expected, use expected order
+                if self.feature_names != expected_features:
+                    print(f"⚠️ Feature name mismatch!")
+                    print(f"Expected: {expected_features}")
+                    print(f"Loaded: {self.feature_names}")
+                    # Use expected features for consistency
+                    features_to_use = expected_features
                 else:
-                    return f"❌ Missing required feature: {feature}", None, False
+                    features_to_use = self.feature_names
+                
+                # Build input array in correct order
+                input_data = []
+                for feature in features_to_use:
+                    if feature in user_input_mapping:
+                        input_data.append(user_input_mapping[feature])
+                    else:
+                        return f"❌ Missing required feature: {feature}", None, False
 
             # Validate input array size
             expected_features_count = len(features_to_use)
