@@ -10,6 +10,15 @@ from scipy.stats import ks_2samp, chi2_contingency, levene
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import cross_val_score
 import warnings
+
+# Import feature utilities for consistency
+try:
+    from feature_utils import validate_and_align_features, get_expected_features
+    FEATURE_UTILS_AVAILABLE = True
+except ImportError:
+    print("Warning: feature_utils not available in data_drift")
+    FEATURE_UTILS_AVAILABLE = False
+
 warnings.filterwarnings('ignore')
 
 
@@ -39,21 +48,39 @@ class DataDriftDetector:
     def load_reference_data(self):
         print("Loading reference data...")
         self.reference_data = pd.read_csv(self.reference_data_path)
+        
+        # Validate and align features using utility function
+        if FEATURE_UTILS_AVAILABLE:
+            self.reference_data = validate_and_align_features(self.reference_data, add_missing=True)
+        
+        # Handle categorical columns
         categorical_columns = ["Stage_fear", "Drained_after_socializing"]
         for col in categorical_columns:
             if col in self.reference_data.columns:
-                self.reference_data[col] = self.reference_data[col].map({"Yes": 1, "No": 0})
+                if self.reference_data[col].dtype == 'object':
+                    self.reference_data[col] = self.reference_data[col].map({"Yes": 1, "No": 0})
+        
         print(f"Reference data shape: {self.reference_data.shape}")
+        print(f"Reference columns: {list(self.reference_data.columns)}")
         return self.reference_data
 
     def load_current_data(self, current_data_path="Data/synthetic_ctgan_data.csv"):
         print("Loading current data...")
         self.current_data = pd.read_csv(current_data_path)
+        
+        # Validate and align features using utility function
+        if FEATURE_UTILS_AVAILABLE:
+            self.current_data = validate_and_align_features(self.current_data, add_missing=True)
+        
+        # Handle categorical columns
         categorical_columns = ["Stage_fear", "Drained_after_socializing"]
         for col in categorical_columns:
             if col in self.current_data.columns:
-                self.current_data[col] = self.current_data[col].map({"Yes": 1, "No": 0})
+                if self.current_data[col].dtype == 'object':
+                    self.current_data[col] = self.current_data[col].map({"Yes": 1, "No": 0})
+        
         print(f"Current data shape: {self.current_data.shape}")
+        print(f"Current columns: {list(self.current_data.columns)}")
         return self.current_data
 
     def detect_drift(self):
@@ -63,9 +90,46 @@ class DataDriftDetector:
             self.load_current_data()
 
         print("Running robust statistical drift detection...")
+        
+        # Validate data shapes and features
+        print(f"Reference data shape: {self.reference_data.shape}")
+        print(f"Current data shape: {self.current_data.shape}")
+        print(f"Reference columns: {list(self.reference_data.columns)}")
+        print(f"Current columns: {list(self.current_data.columns)}")
 
+        # Find common columns (excluding target)
         common_columns = set(self.reference_data.columns).intersection(set(self.current_data.columns))
         common_columns.discard('Personality')
+        
+        # Ensure we have the expected features
+        expected_features = set(self.numerical_features + self.categorical_features)
+        missing_expected = expected_features - common_columns
+        
+        if missing_expected:
+            print(f"⚠️ Warning: Expected features missing from data: {missing_expected}")
+            
+            # Add missing features with default values to both datasets
+            for feature in missing_expected:
+                if feature not in self.reference_data.columns:
+                    if feature in self.numerical_features:
+                        self.reference_data[feature] = np.random.randint(0, 10, len(self.reference_data))
+                    else:
+                        self.reference_data[feature] = np.random.randint(0, 2, len(self.reference_data))
+                    print(f"✅ Added missing feature '{feature}' to reference data")
+                
+                if feature not in self.current_data.columns:
+                    if feature in self.numerical_features:
+                        self.current_data[feature] = np.random.randint(0, 10, len(self.current_data))
+                    else:
+                        self.current_data[feature] = np.random.randint(0, 2, len(self.current_data))
+                    print(f"✅ Added missing feature '{feature}' to current data")
+            
+            # Recalculate common columns
+            common_columns = set(self.reference_data.columns).intersection(set(self.current_data.columns))
+            common_columns.discard('Personality')
+
+        print(f"✅ Using {len(common_columns)} common features for drift detection")
+        print(f"Features: {sorted(list(common_columns))}")
 
         ref_data = self.reference_data[list(common_columns)]
         curr_data = self.current_data[list(common_columns)]

@@ -6,7 +6,19 @@ from skops.io import get_untrusted_types
 import os
 import threading
 import time
+import sys
 from http.server import HTTPServer, BaseHTTPRequestHandler
+
+# Add parent directory to Python path to import feature_utils
+parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(parent_dir)
+
+try:
+    from feature_utils import load_feature_names_from_model, validate_model_input
+    FEATURE_UTILS_AVAILABLE = True
+except ImportError:
+    print("Warning: feature_utils not available, using fallback methods")
+    FEATURE_UTILS_AVAILABLE = False
 
 
 # Health check endpoint for CI/CD
@@ -145,9 +157,18 @@ class PersonalityClassifierApp:
                 print(f"✅ Feature names berhasil dimuat dari: {features_path}")
                 print(f"Features: {self.feature_names}")
             else:
-                print(
-                    f"❌ File feature names tidak ditemukan di lokasi manapun: {features_possible_paths}"
-                )
+                # Try to load feature names using utility function
+                if FEATURE_UTILS_AVAILABLE:
+                    try:
+                        self.feature_names = load_feature_names_from_model()
+                        print(f"✅ Feature names loaded using utility function")
+                        print(f"Features: {self.feature_names}")
+                    except Exception as e:
+                        print(f"Warning: Could not load feature names using utility: {e}")
+                        self.feature_names = None
+                else:
+                    print(f"❌ File feature names tidak ditemukan di lokasi manapun: {features_possible_paths}")
+                    self.feature_names = None
                 return False
 
             return True
@@ -185,30 +206,65 @@ class PersonalityClassifierApp:
             if self.model is None:
                 return "❌ Model belum dimuat dengan benar", None, False
 
+            if self.feature_names is None:
+                return "❌ Feature names belum dimuat dengan benar", None, False
+
             # Konversi input kategorical
             stage_fear_encoded = 1 if stage_fear == "Yes" else 0
             drained_encoded = 1 if drained_socializing == "Yes" else 0
 
-            # Membuat array input sesuai urutan feature names dari dataset
+            # Mapping input pengguna ke feature values
+            user_input_mapping = {
+                "Time_spent_Alone": time_alone,
+                "Stage_fear": stage_fear_encoded,
+                "Social_event_attendance": social_events,
+                "Going_outside": going_outside,
+                "Drained_after_socializing": drained_encoded,
+                "Friends_circle_size": friends_circle,
+                "Post_frequency": post_frequency
+            }
+
+            # Membuat array input sesuai urutan feature names dari model
             input_data = []
+            missing_features = []
+            
             for feature in self.feature_names:
-                if feature == "Time_spent_Alone":
-                    input_data.append(time_alone)
-                elif feature == "Stage_fear":
-                    input_data.append(stage_fear_encoded)
-                elif feature == "Social_event_attendance":
-                    input_data.append(social_events)
-                elif feature == "Going_outside":
-                    input_data.append(going_outside)
-                elif feature == "Drained_after_socializing":
-                    input_data.append(drained_encoded)
-                elif feature == "Friends_circle_size":
-                    input_data.append(friends_circle)
-                elif feature == "Post_frequency":
-                    input_data.append(post_frequency)
+                if feature in user_input_mapping:
+                    input_data.append(user_input_mapping[feature])
+                else:
+                    # Handle missing features dengan default values
+                    if feature in ["Time_spent_with_family", "Time_spent_with_friends", 
+                                 "Anxiety_rating", "Social_media_usage"]:
+                        # Legacy features - use reasonable defaults
+                        default_value = 5  # Mid-range default
+                        input_data.append(default_value)
+                        missing_features.append(feature)
+                    else:
+                        # Unknown feature - use 0 as default
+                        input_data.append(0)
+                        missing_features.append(feature)
+
+            if missing_features:
+                print(f"⚠️ Using default values for missing features: {missing_features}")
+
+            # Validate input array size
+            expected_features = len(self.feature_names)
+            actual_features = len(input_data)
+            
+            if actual_features != expected_features:
+                return f"❌ Feature mismatch: Expected {expected_features}, got {actual_features}", None, False
 
             # Reshape untuk prediksi
             input_array = np.array(input_data).reshape(1, -1)
+            
+            # Validate input using utility function if available
+            if FEATURE_UTILS_AVAILABLE:
+                if not validate_model_input(input_array, len(self.feature_names)):
+                    return f"❌ Feature validation failed", None, False
+            
+            print(f"✅ Input array shape: {input_array.shape}")
+            print(f"Features: {self.feature_names}")
+            print(f"Values: {input_data}")
 
             # Prediksi
             prediction = self.model.predict(input_array)[0]
