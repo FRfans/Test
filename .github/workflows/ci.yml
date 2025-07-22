@@ -414,15 +414,43 @@ jobs:
           import skops.io as sio
           from skops.io import get_untrusted_types
           import os
+          import sys
+          
+          # Add current directory to Python path for feature validator
+          sys.path.append('.')
           
           if os.path.exists('Model/personality_classifier.skops'):
               # Get untrusted types first, then load
               untrusted_types = get_untrusted_types(file='Model/personality_classifier.skops')
               model = sio.load('Model/personality_classifier.skops', trusted=untrusted_types)
               
-              # Test different batch sizes
+              # Load correct number of features
+              try:
+                  from feature_validator import FeatureValidator
+                  n_features = len(FeatureValidator.CANONICAL_FEATURES)
+                  print(f'✅ Using feature validator: {n_features} features')
+              except ImportError:
+                  # Fallback - load from feature names file
+                  try:
+                      import json
+                      if os.path.exists('Model/feature_names.json'):
+                          with open('Model/feature_names.json', 'r') as f:
+                              feature_names = json.load(f)
+                              n_features = len(feature_names)
+                              print(f'✅ Loaded from feature_names.json: {n_features} features')
+                      else:
+                          n_features = 7  # Default expected features
+                          print(f'⚠️ Using default: {n_features} features')
+                  except Exception as e:
+                      n_features = 7  # Default fallback
+                      print(f'⚠️ Fallback to default: {n_features} features, error: {e}')
+              
+              print(f'🧪 Running performance tests with {n_features} features...')
+              
+              # Test different batch sizes with correct number of features
               for size in [1, 10, 100, 1000]:
-                  X_test = np.random.rand(size, 5)
+                  # Create test data with correct number of features
+                  X_test = np.random.rand(size, n_features)
                   start_time = time.time()
                   predictions = model.predict(X_test)
                   end_time = time.time()
@@ -436,6 +464,8 @@ jobs:
                   # Performance thresholds
                   if size == 1000 and throughput < 100:
                       print('⚠️ Performance warning: Low throughput')
+              
+              print('✅ Performance tests completed successfully')
           else:
               print('⚠️ Model file not found, skipping performance test')
           "

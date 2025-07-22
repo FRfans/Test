@@ -13,7 +13,45 @@ eval:
 	cat ./Results/metrics.txt >> report.md
 
 	echo '\n## Data Exploration Plot' >> report.md
-	echo '![Data Exploration](./Results/data_exploration.png)' >> report.md
+	echo '![Data Exploration](./Results/datbenchmark:
+	@echo "⚡ Running model performance benchmark..."
+	@python -c "\
+	import time, numpy as np, skops.io as sio, os, json, sys; \
+	from skops.io import get_untrusted_types; \
+	if not os.path.exists('Model/personality_classifier.skops'): \
+		print('❌ Model file not found'); \
+		exit(1); \
+	sys.path.append('.'); \
+	try: \
+		from feature_validator import FeatureValidator; \
+		n_features = len(FeatureValidator.CANONICAL_FEATURES); \
+		print(f'✅ Using feature validator: {n_features} features'); \
+	except ImportError: \
+		try: \
+			if os.path.exists('Model/feature_names.json'): \
+				with open('Model/feature_names.json', 'r') as f: \
+					feature_names = json.load(f); \
+					n_features = len(feature_names); \
+					print(f'✅ Loaded from feature_names.json: {n_features} features'); \
+			else: \
+				n_features = 7; \
+				print(f'⚠️ Using default: {n_features} features'); \
+		except Exception as e: \
+			n_features = 7; \
+			print(f'⚠️ Fallback to default: {n_features} features'); \
+	untrusted_types = get_untrusted_types(file='Model/personality_classifier.skops'); \
+	model = sio.load('Model/personality_classifier.skops', trusted=untrusted_types); \
+	print('✅ Model loaded successfully'); \
+	test_sizes = [1, 10, 100, 1000]; \
+	for size in test_sizes: \
+		X_test = np.random.rand(size, n_features); \
+		start_time = time.time(); \
+		predictions = model.predict(X_test); \
+		duration = time.time() - start_time; \
+		throughput = size / duration if duration > 0 else 0; \
+		latency = (duration * 1000) / size if size > 0 else 0; \
+		print(f'Size {size:4d}: {throughput:8.2f} pred/sec, {latency:6.2f}ms/pred'); \
+	print('✅ Benchmark completed')">> report.md
 
 	echo '\n## Model Evaluation Plot' >> report.md
 	echo '![Model Evaluation](./Results/model_evaluation.png)' >> report.md
@@ -314,19 +352,38 @@ start-monitoring-stack:
 	docker-compose up -d mlflow prometheus grafana
 
 # Performance and Health
-benchmark:
+performance-test:
 	@echo "📊 Running performance benchmark..."
 	@python -c "\
-	import time, numpy as np, skops.io as sio, os; from skops.io import get_untrusted_types; \
+	import time, numpy as np, skops.io as sio, os, json, sys; \
+	from skops.io import get_untrusted_types; \
 	if not os.path.exists('Model/personality_classifier.skops'): \
 		print('❌ Model file not found'); \
 		exit(1); \
+	sys.path.append('.'); \
+	try: \
+		from feature_validator import FeatureValidator; \
+		n_features = len(FeatureValidator.CANONICAL_FEATURES); \
+		print(f'✅ Using feature validator: {n_features} features'); \
+	except ImportError: \
+		try: \
+			if os.path.exists('Model/feature_names.json'): \
+				with open('Model/feature_names.json', 'r') as f: \
+					feature_names = json.load(f); \
+					n_features = len(feature_names); \
+					print(f'✅ Loaded from feature_names.json: {n_features} features'); \
+			else: \
+				n_features = 7; \
+				print(f'⚠️ Using default: {n_features} features'); \
+		except Exception as e: \
+			n_features = 7; \
+			print(f'⚠️ Fallback to default: {n_features} features'); \
 	untrusted_types = get_untrusted_types(file='Model/personality_classifier.skops'); \
 	model = sio.load('Model/personality_classifier.skops', trusted=untrusted_types); \
 	print('✅ Model loaded successfully'); \
 	test_sizes = [1, 10, 100, 1000]; \
 	for size in test_sizes: \
-		X_test = np.random.rand(size, 5); \
+		X_test = np.random.rand(size, n_features); \
 		start_time = time.time(); \
 		predictions = model.predict(X_test); \
 		duration = time.time() - start_time; \

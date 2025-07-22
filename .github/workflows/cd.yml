@@ -226,17 +226,44 @@ jobs:
             python -c "
             import skops.io as sio
             import numpy as np
+            import os
+            import json
+            import sys
             
             try:
-                model = sio.load('Model/personality_classifier.skops', 
-                               trusted=True)
+                # Load model with proper trusted types
+                from skops.io import get_untrusted_types
+                untrusted_types = get_untrusted_types(file='Model/personality_classifier.skops')
+                model = sio.load('Model/personality_classifier.skops', trusted=untrusted_types)
                 
-                # Test prediction
-                X_test = np.random.rand(5, 5)
+                # Get correct number of features
+                sys.path.append('.')
+                try:
+                    from feature_validator import FeatureValidator
+                    n_features = len(FeatureValidator.CANONICAL_FEATURES)
+                    print(f'✅ Using feature validator: {n_features} features')
+                except ImportError:
+                    try:
+                        if os.path.exists('Model/feature_names.json'):
+                            with open('Model/feature_names.json', 'r') as f:
+                                feature_names = json.load(f)
+                                n_features = len(feature_names)
+                                print(f'✅ Loaded from feature_names.json: {n_features} features')
+                        else:
+                            n_features = 7
+                            print(f'⚠️ Using default: {n_features} features')
+                    except Exception as e:
+                        n_features = 7
+                        print(f'⚠️ Fallback to default: {n_features} features')
+                
+                # Test prediction with correct feature count
+                X_test = np.random.rand(5, n_features)
                 predictions = model.predict(X_test)
-                print(f'✅ Model prediction test passed: {len(predictions)} predictions')
+                print(f'✅ Model prediction test passed: {len(predictions)} predictions with {n_features} features')
             except Exception as e:
                 print(f'❌ Model test failed: {e}')
+                import traceback
+                traceback.print_exc()
             "
           fi
 
