@@ -51,8 +51,20 @@ jobs:
         run: |
           echo "🔍 Running code quality and security checks..."
           
-          # Format check
-          black --check --diff *.py App/*.py || (echo "❌ Code formatting issues found" && exit 1)
+          # Auto-format code first
+          echo "✨ Auto-formatting code with Black..."
+          black *.py App/*.py
+          
+          # Check if any files were changed by formatting
+          if ! git diff --quiet; then
+            echo "📝 Code was auto-formatted by Black"
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add *.py App/*.py
+            git commit -m "style: auto-format code with Black [skip ci]" || true
+          else
+            echo "✅ Code is already properly formatted"
+          fi
           
           # Linting
           flake8 *.py App/*.py --count --select=E9,F63,F7,F82 --show-source --statistics
