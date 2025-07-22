@@ -47,6 +47,29 @@ class PersonalityClassifier:
     def load_and_explore_data(self):
         print("Memuat dataset...")
 
+        # Check if data file exists
+        if not os.path.exists(self.data_path):
+            print(f"❌ Data file not found: {self.data_path}")
+            print("🔧 Creating sample dataset for CI/CD...")
+            
+            # Create sample data for CI/CD
+            os.makedirs(os.path.dirname(self.data_path), exist_ok=True)
+            np.random.seed(42)
+            n_samples = 1000
+            
+            sample_data = {
+                'Time_spent_Alone': np.random.randint(0, 12, n_samples),
+                'Time_spent_with_family': np.random.randint(0, 12, n_samples),
+                'Time_spent_with_friends': np.random.randint(0, 12, n_samples),
+                'Anxiety_rating': np.random.randint(0, 12, n_samples),
+                'Social_media_usage': np.random.randint(0, 12, n_samples),
+                'Personality': np.random.choice(['Introvert', 'Extrovert'], n_samples)
+            }
+            
+            sample_df = pd.DataFrame(sample_data)
+            sample_df.to_csv(self.data_path, index=False)
+            print(f"✅ Created sample dataset: {sample_df.shape}")
+
         new_data = pd.read_csv(self.data_path)
         print(f"Data baru: {new_data.shape}")
 

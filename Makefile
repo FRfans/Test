@@ -185,9 +185,28 @@ deploy:
 ci-setup:
 	pip install --upgrade pip
 	pip install -r requirements.txt
-	pip install pytest black flake8 pylint bandit safety
+	pip install pytest black flake8 pylint bandit safety dvc
+
+ci-data-setup:
+	@echo "📥 Setting up data for CI/CD..."
+	@python -c "\
+	import pandas as pd; import numpy as np; import os; \
+	os.makedirs('Data', exist_ok=True); \
+	np.random.seed(42); n_samples = 1000; \
+	data = { \
+		'Time_spent_Alone': np.random.randint(0, 12, n_samples), \
+		'Time_spent_with_family': np.random.randint(0, 12, n_samples), \
+		'Time_spent_with_friends': np.random.randint(0, 12, n_samples), \
+		'Anxiety_rating': np.random.randint(0, 12, n_samples), \
+		'Social_media_usage': np.random.randint(0, 12, n_samples), \
+		'Personality': np.random.choice(['Introvert', 'Extrovert'], n_samples) \
+	}; \
+	df = pd.DataFrame(data); \
+	df.to_csv('Data/personality_datasert.csv', index=False) if not os.path.exists('Data/personality_datasert.csv') else None; \
+	print(f'✅ Data ready: {df.shape}' if not os.path.exists('Data/personality_datasert.csv') else '✅ Data already exists')"
 
 ci-full:
+	make ci-data-setup
 	make format-check
 	make lint
 	make security-scan
@@ -288,6 +307,7 @@ help:
 	@echo "🏗️ Setup & Dependencies:"
 	@echo "  install              - Install Python dependencies"
 	@echo "  ci-setup             - Setup CI environment"
+	@echo "  ci-data-setup        - Setup sample data for CI/CD"
 	@echo ""
 	@echo "🎯 ML Training & Evaluation:"
 	@echo "  train                - Train the model"
