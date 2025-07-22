@@ -85,10 +85,43 @@ class adaptiveDriftGenerator:
         self.original_data = pd.read_csv(self.original_data_path)
         print(f" Original data loaded: {self.original_data.shape}")
         
+        # Validate required columns
+        all_required_columns = self.numerical_features + self.categorical_features + [self.target_feature]
+        missing_columns = [col for col in all_required_columns if col not in self.original_data.columns]
+        
+        if missing_columns:
+            print(f"⚠️ Warning: Missing required columns in original data: {missing_columns}")
+            print(f"Available columns: {list(self.original_data.columns)}")
+            
+            # Handle missing columns gracefully
+            for col in missing_columns:
+                if col in self.numerical_features:
+                    # Add default numerical values
+                    self.original_data[col] = np.random.randint(0, 10, len(self.original_data))
+                    print(f"✅ Added missing numerical column '{col}' with random values")
+                elif col in self.categorical_features:
+                    # Add default categorical values
+                    self.original_data[col] = np.random.randint(0, 2, len(self.original_data))
+                    print(f"✅ Added missing categorical column '{col}' with random binary values")
+                elif col == self.target_feature:
+                    # Add default target values
+                    self.original_data[col] = np.random.choice(['Introvert', 'Extrovert'], len(self.original_data))
+                    print(f"✅ Added missing target column '{col}' with random values")
+        else:
+            print("✅ All required columns are present")
+        
         # Load current data if exists, otherwise use original
         if os.path.exists(self.output_path):
             self.current_data = pd.read_csv(self.output_path)
             print(f" Current synthetic data loaded: {self.current_data.shape}")
+            
+            # Validate current data columns too
+            missing_in_current = [col for col in all_required_columns if col not in self.current_data.columns]
+            if missing_in_current:
+                print(f"⚠️ Warning: Missing columns in current data: {missing_in_current}")
+                # Use original data structure for consistency
+                self.current_data = self.original_data.copy()
+                print(" Using original data structure for current data")
         else:
             self.current_data = self.original_data.copy()
             print(" No existing synthetic data, using original as baseline")

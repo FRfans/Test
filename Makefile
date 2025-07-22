@@ -195,15 +195,21 @@ ci-data-setup:
 	np.random.seed(42); n_samples = 1000; \
 	data = { \
 		'Time_spent_Alone': np.random.randint(0, 12, n_samples), \
+		'Social_event_attendance': np.random.randint(0, 10, n_samples), \
+		'Going_outside': np.random.randint(0, 10, n_samples), \
+		'Friends_circle_size': np.random.randint(1, 50, n_samples), \
+		'Post_frequency': np.random.randint(1, 10, n_samples), \
+		'Stage_fear': np.random.randint(0, 2, n_samples), \
+		'Drained_after_socializing': np.random.randint(0, 2, n_samples), \
+		'Personality': np.random.choice(['Introvert', 'Extrovert'], n_samples), \
 		'Time_spent_with_family': np.random.randint(0, 12, n_samples), \
 		'Time_spent_with_friends': np.random.randint(0, 12, n_samples), \
 		'Anxiety_rating': np.random.randint(0, 12, n_samples), \
-		'Social_media_usage': np.random.randint(0, 12, n_samples), \
-		'Personality': np.random.choice(['Introvert', 'Extrovert'], n_samples) \
+		'Social_media_usage': np.random.randint(0, 12, n_samples) \
 	}; \
 	df = pd.DataFrame(data); \
 	df.to_csv('Data/personality_datasert.csv', index=False) if not os.path.exists('Data/personality_datasert.csv') else None; \
-	print(f'✅ Data ready: {df.shape}' if not os.path.exists('Data/personality_datasert.csv') else '✅ Data already exists')"
+	print(f'✅ Data ready: {df.shape} with all required columns' if not os.path.exists('Data/personality_datasert.csv') else '✅ Data already exists')"
 
 ci-full:
 	make ci-data-setup
