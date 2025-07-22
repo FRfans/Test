@@ -223,10 +223,12 @@ jobs:
               if os.path.exists('Data/personality_datasert.csv'):
                   print('📊 Generating synthetic data...')
                   generator = adaptiveDriftGenerator('Data/personality_datasert.csv')
-                  synthetic_data = generator.generate_drift_data(n_samples=500)
+                  # Use the correct method name: generate_drifted_data
+                  synthetic_data, drift_info = generator.generate_drifted_data(n_new_samples=500)
                   synthetic_data.to_csv('Data/synthetic_ctgan_data.csv', index=False)
                   print(f'✅ Synthetic data generated: {synthetic_data.shape}')
                   print(f'Synthetic data columns: {list(synthetic_data.columns)}')
+                  print(f'Drift info: {drift_info[\"drift_type\"]} with strength {drift_info[\"drift_strength\"]:.3f}')
               else:
                   print('❌ Original data not found for synthetic generation')
                   exit(1)

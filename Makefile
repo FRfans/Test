@@ -250,9 +250,9 @@ generate-synthetic:
 	python -c "\
 	from data_synthetic_generator import adaptiveDriftGenerator; import os; \
 	generator = adaptiveDriftGenerator('Data/personality_datasert.csv') if os.path.exists('Data/personality_datasert.csv') else exit(1); \
-	data = generator.generate_drift_data(n_samples=1000); \
+	data, drift_info = generator.generate_drifted_data(n_new_samples=1000); \
 	data.to_csv('Data/synthetic_ctgan_data.csv', index=False); \
-	print(f'✅ Generated: {data.shape}')"
+	print(f'✅ Generated: {data.shape} with {drift_info[\"drift_type\"]}')"
 
 drift-detect:
 	python -c "\
