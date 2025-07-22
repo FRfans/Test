@@ -28,6 +28,9 @@ from skops.io import get_untrusted_types
 import skops.io as sio
 from skops.io import get_untrusted_types
 
+# Import feature validator
+from feature_validator import FeatureValidator
+
 warnings.filterwarnings("ignore")
 
 
@@ -54,26 +57,30 @@ class PersonalityClassifier:
             print(f"❌ Data file not found: {self.data_path}")
             print("🔧 Creating sample dataset for CI/CD...")
             
-            # Create sample data for CI/CD
+            # Create sample data for CI/CD with correct feature structure using validator
             os.makedirs(os.path.dirname(self.data_path), exist_ok=True)
-            np.random.seed(42)
-            n_samples = 1000
             
-            sample_data = {
-                'Time_spent_Alone': np.random.randint(0, 12, n_samples),
-                'Time_spent_with_family': np.random.randint(0, 12, n_samples),
-                'Time_spent_with_friends': np.random.randint(0, 12, n_samples),
-                'Anxiety_rating': np.random.randint(0, 12, n_samples),
-                'Social_media_usage': np.random.randint(0, 12, n_samples),
-                'Personality': np.random.choice(['Introvert', 'Extrovert'], n_samples)
-            }
-            
-            sample_df = pd.DataFrame(sample_data)
+            sample_df = FeatureValidator.create_sample_data(n_samples=1000, random_state=42)
             sample_df.to_csv(self.data_path, index=False)
             print(f"✅ Created sample dataset: {sample_df.shape}")
+            print(f"✅ Features: {list(sample_df.columns[:-1])}")
+            
+            # Validate the created sample data
+            is_valid, issues = FeatureValidator.validate_dataframe(sample_df, stage="training")
+            if not is_valid:
+                print(f"⚠️ Sample data validation issues: {issues}")
+            else:
+                print("✅ Sample data validation passed")
 
         new_data = pd.read_csv(self.data_path)
         print(f"Data baru: {new_data.shape}")
+        
+        # Validate the loaded data
+        is_valid, issues = FeatureValidator.validate_dataframe(new_data, stage="training")
+        if not is_valid:
+            print(f"⚠️ Data validation issues: {issues}")
+        else:
+            print("✅ Data validation passed")
 
         if self.retrain and self.old_data_path and os.path.exists(self.old_data_path):
             print(f"Gabungkan dengan data lama dari: {self.old_data_path}")
@@ -89,14 +96,27 @@ class PersonalityClassifier:
 
     def preprocess_data(self):
         print("\nPreprocessing data...")
-        self.data = self.data.dropna()
-        categorical_columns = ["Stage_fear", "Drained_after_socializing"]
-        for col in categorical_columns:
-            if col in self.data.columns:
-                self.data[col] = self.data[col].map({"Yes": 1, "No": 0})
-        X = self.data.drop("Personality", axis=1)
-        y = self.data["Personality"]
+        
+        # Standardize the dataframe using the validator
+        self.data = FeatureValidator.standardize_dataframe(self.data.dropna())
+        
+        # Separate features and target
+        X = self.data.drop(FeatureValidator.TARGET_FEATURE, axis=1)
+        y = self.data[FeatureValidator.TARGET_FEATURE]
+        
+        # Validate feature structure
+        is_valid, issues = FeatureValidator.validate_dataframe(self.data, stage="training")
+        if not is_valid:
+            print(f"⚠️ Preprocessing validation issues: {issues}")
+        else:
+            print("✅ Preprocessing validation passed")
+        
+        print(f"✅ Final features ({len(X.columns)}): {list(X.columns)}")
+        
+        # Encode target variable
         y_encoded = self.label_encoder.fit_transform(y)
+        
+        # Split the data
         self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(
             X, y_encoded, test_size=0.2, random_state=42, stratify=y_encoded
         )
@@ -202,18 +222,43 @@ class PersonalityClassifier:
     def save_model(self):
         print("\nMenyimpan model...")
         os.makedirs("Model", exist_ok=True)
+        
+        # Save model, label encoder, and feature names
         sio.dump(self.best_model, "Model/personality_classifier.skops")
         sio.dump(self.label_encoder, "Model/label_encoder.skops")
         sio.dump(list(self.X_train.columns), "Model/feature_names.skops")
-        print("Model & artifacts disimpan.")
+        
+        # Also save feature names as JSON for easier access
+        import json
+        with open("Model/feature_names.json", "w") as f:
+            json.dump(list(self.X_train.columns), f, indent=2)
+        
+        # Save feature schema using validator
+        FeatureValidator.save_feature_schema("Model")
+        
+        print(f"✅ Model & artifacts saved with {len(self.X_train.columns)} features:")
+        print(f"   Features: {list(self.X_train.columns)}")
 
         try:
             # Validate saved model with get_untrusted_types for CI/CD
             untrusted_types = get_untrusted_types(file="Model/personality_classifier.skops")
-            sio.load("Model/personality_classifier.skops", trusted=untrusted_types)
+            loaded_model = sio.load("Model/personality_classifier.skops", trusted=untrusted_types)
+            
+            # Validate feature count consistency
+            loaded_features = sio.load("Model/feature_names.skops", trusted=get_untrusted_types(file="Model/feature_names.skops"))
+            expected_features = len(self.X_train.columns)
+            
+            # Check if the model pipeline expects the correct number of features
+            if hasattr(loaded_model, 'named_steps') and 'scaler' in loaded_model.named_steps:
+                scaler_features = loaded_model.named_steps['scaler'].n_features_in_
+                if scaler_features != expected_features:
+                    raise ValueError(f"Scaler expects {scaler_features} features, but training data has {expected_features}")
+            
+            print(f"✅ Model validation successful - {len(loaded_features)} features")
             print("Model valid dan siap deploy!")
         except Exception as e:
-            print(f" Gagal load model: {e}")
+            print(f"❌ Gagal load model: {e}")
+            raise
 
     def run_complete_pipeline(self):
         print("=" * 60)

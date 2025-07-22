@@ -206,39 +206,43 @@ class PersonalityClassifierApp:
 
             # Membuat array input sesuai urutan feature names dari model
             input_data = []
-            missing_features = []
             
-            for feature in self.feature_names:
+            # Ensure we have the expected feature order
+            expected_features = [
+                'Time_spent_Alone', 'Stage_fear', 'Social_event_attendance', 
+                'Going_outside', 'Drained_after_socializing', 'Friends_circle_size', 
+                'Post_frequency'
+            ]
+            
+            # If loaded feature names don't match expected, use expected order
+            if self.feature_names != expected_features:
+                print(f"⚠️ Feature name mismatch!")
+                print(f"Expected: {expected_features}")
+                print(f"Loaded: {self.feature_names}")
+                # Use expected features for consistency
+                features_to_use = expected_features
+            else:
+                features_to_use = self.feature_names
+            
+            # Build input array in correct order
+            for feature in features_to_use:
                 if feature in user_input_mapping:
                     input_data.append(user_input_mapping[feature])
                 else:
-                    # Handle missing features dengan default values
-                    if feature in ["Time_spent_with_family", "Time_spent_with_friends", 
-                                 "Anxiety_rating", "Social_media_usage"]:
-                        # Legacy features - use reasonable defaults
-                        default_value = 5  # Mid-range default
-                        input_data.append(default_value)
-                        missing_features.append(feature)
-                    else:
-                        # Unknown feature - use 0 as default
-                        input_data.append(0)
-                        missing_features.append(feature)
-
-            if missing_features:
-                print(f"⚠️ Using default values for missing features: {missing_features}")
+                    return f"❌ Missing required feature: {feature}", None, False
 
             # Validate input array size
-            expected_features = len(self.feature_names)
-            actual_features = len(input_data)
+            expected_features_count = len(features_to_use)
+            actual_features_count = len(input_data)
             
-            if actual_features != expected_features:
-                return f"❌ Feature mismatch: Expected {expected_features}, got {actual_features}", None, False
+            if actual_features_count != expected_features_count:
+                return f"❌ Feature mismatch: Expected {expected_features_count}, got {actual_features_count}", None, False
 
             # Reshape untuk prediksi
             input_array = np.array(input_data).reshape(1, -1)
             
             print(f"✅ Input array shape: {input_array.shape}")
-            print(f"Features: {self.feature_names}")
+            print(f"Features: {features_to_use}")
             print(f"Values: {input_data}")
 
             # Prediksi
