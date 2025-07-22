@@ -140,7 +140,7 @@ jobs:
                 - ENV=production
                 - MLFLOW_TRACKING_URI=http://mlflow:5000
               healthcheck:
-                test: ["CMD", "curl", "-f", "http://localhost:7860/health"]
+                test: ["CMD", "curl", "-f", "http://localhost:7861/health"]
                 interval: 30s
                 timeout: 10s
                 retries: 3
@@ -229,7 +229,7 @@ jobs:
             
             try:
                 model = sio.load('Model/personality_classifier.skops', 
-                               trusted=sio.get_untrusted_types())
+                               trusted=True)
                 
                 # Test prediction
                 X_test = np.random.rand(5, 5)

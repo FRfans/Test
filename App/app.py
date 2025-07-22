@@ -2,8 +2,36 @@ import gradio as gr
 import numpy as np
 import pandas as pd
 import skops.io as sio
-from skops.io import get_untrusted_types
 import os
+import threading
+import time
+from http.server import HTTPServer, BaseHTTPRequestHandler
+
+
+# Health check endpoint for CI/CD
+class HealthHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        if self.path == '/health':
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            self.wfile.write(b'{"status": "healthy", "service": "personality-classifier"}')
+        else:
+            self.send_response(404)
+            self.end_headers()
+
+    def log_message(self, format, *args):
+        # Suppress default logging
+        pass
+
+
+def start_health_server(port=7861):
+    """Start health check server in background"""
+    try:
+        server = HTTPServer(('127.0.0.1', port), HealthHandler)
+        server.serve_forever()
+    except Exception as e:
+        print(f"⚠️ Health server failed to start: {e}")
 
 
 # Configuration for server based on environment
@@ -63,8 +91,7 @@ class PersonalityClassifierApp:
                     break
 
             if model_path:
-                unknown_types = get_untrusted_types()
-                self.model = sio.load(model_path, trusted=unknown_types)
+                self.model = sio.load(model_path, trusted=True)
                 print(f"✅ Model berhasil dimuat dari: {model_path}")
             else:
                 print(
@@ -87,8 +114,7 @@ class PersonalityClassifierApp:
                     break
 
             if encoder_path:
-                unknown_types = get_untrusted_types()
-                self.label_encoder = sio.load(encoder_path, trusted=unknown_types)
+                self.label_encoder = sio.load(encoder_path, trusted=True)
                 print(f"✅ Label encoder berhasil dimuat dari: {encoder_path}")
             else:
                 print(
@@ -111,8 +137,7 @@ class PersonalityClassifierApp:
                     break
 
             if features_path:
-                unknown_types = get_untrusted_types()
-                self.feature_names = sio.load(features_path, trusted=unknown_types)
+                self.feature_names = sio.load(features_path, trusted=True)
                 print(f"✅ Feature names berhasil dimuat dari: {features_path}")
                 print(f"Features: {self.feature_names}")
             else:
@@ -526,11 +551,22 @@ if __name__ == "__main__":
     # Get server configuration based on environment
     server_name, server_port = get_server_config()
 
+    # Start health check server in background thread
+    health_thread = threading.Thread(target=start_health_server, daemon=True)
+    health_thread.start()
+    print("🏥 Health check server started on port 7861")
+
     demo = create_interface()
 
-    demo.launch(
-        server_name=server_name,
-        server_port=server_port,
-        share=False,
-        show_api=False,
-    )
+    try:
+        demo.launch(
+            server_name=server_name,
+            server_port=server_port,
+            share=False,
+            show_api=False,
+        )
+    except KeyboardInterrupt:
+        print("👋 Gracefully shutting down...")
+    except Exception as e:
+        print(f"❌ Error launching app: {e}")
+        raise

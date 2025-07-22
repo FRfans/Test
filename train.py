@@ -24,7 +24,6 @@ from datetime import datetime
 
 # Import skops untuk menyimpan model yang kompatibel dengan Hugging Face Spaces
 import skops.io as sio
-from skops.io import get_untrusted_types
 
 warnings.filterwarnings("ignore")
 
@@ -204,10 +203,10 @@ class PersonalityClassifier:
         sio.dump(self.label_encoder, "Model/label_encoder.skops")
         sio.dump(list(self.X_train.columns), "Model/feature_names.skops")
         print("Model & artifacts disimpan.")
-        unknown_types = get_untrusted_types()
 
         try:
-            sio.load("Model/personality_classifier.skops", trusted=unknown_types)
+            # Validate saved model with trusted=True for CI/CD
+            sio.load("Model/personality_classifier.skops", trusted=True)
             print("Model valid dan siap deploy!")
         except Exception as e:
             print(f" Gagal load model: {e}")
@@ -281,16 +280,48 @@ def parse_args():
 
 
 def main():
-    args = parse_args()
-    classifier = PersonalityClassifier(
-        data_path=args.data_path,
-        retrain=args.retrain,
-        old_data_path=args.old_data_path
-    )
-    model, acc, auc = classifier.run_complete_pipeline()
-    return model, acc, auc
-
+    try:
+        args = parse_args()
+        
+        # Validate paths exist
+        if not os.path.exists(args.data_path):
+            print(f"❌ Error: Data file not found: {args.data_path}")
+            sys.exit(1)
+            
+        if args.retrain and args.old_data_path and not os.path.exists(args.old_data_path):
+            print(f"❌ Error: Old data file not found: {args.old_data_path}")
+            sys.exit(1)
+        
+        print(f"🚀 Starting training with data: {args.data_path}")
+        if args.retrain:
+            print(f"🔄 Retraining mode enabled")
+            if args.old_data_path:
+                print(f"📊 Old data: {args.old_data_path}")
+        
+        classifier = PersonalityClassifier(
+            data_path=args.data_path,
+            retrain=args.retrain,
+            old_data_path=args.old_data_path
+        )
+        
+        model, acc, auc = classifier.run_complete_pipeline()
+        
+        print(f"✅ Training completed successfully!")
+        print(f"📊 Final Accuracy: {acc:.4f}")
+        print(f"📊 Final AUC: {auc:.4f}")
+        
+        return model, acc, auc
+        
+    except KeyboardInterrupt:
+        print("\n⚠️ Training interrupted by user")
+        sys.exit(1)
+    except Exception as e:
+        print(f"❌ Training failed with error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
 
 
 if __name__ == "__main__":
+    import sys
     model, acc, auc = main()

@@ -225,10 +225,18 @@ security-scan:
 	safety check
 
 validate-artifacts:
-	python -c "\
+	@echo "🔍 Validating model artifacts..."
+	@python -c "\
 	import os; import skops.io as sio; \
 	files = ['Model/personality_classifier.skops', 'Model/label_encoder.skops', 'Model/feature_names.skops']; \
-	[print(f'✅ {f} validated') if os.path.exists(f) and sio.load(f, trusted=sio.get_untrusted_types()) else exit(1) for f in files]"
+	missing_files = [f for f in files if not os.path.exists(f)]; \
+	if missing_files: \
+		print(f'❌ Missing files: {missing_files}'); \
+		exit(1); \
+	else: \
+		print('✅ All required files exist'); \
+	[print(f'✅ {f} loads correctly') if sio.load(f, trusted=True) else (print(f'❌ {f} failed to load'), exit(1)) for f in files]; \
+	print('✅ All artifacts validated successfully')"
 
 # Data and Drift Management
 generate-synthetic:
@@ -274,17 +282,45 @@ start-monitoring-stack:
 
 # Performance and Health
 benchmark:
-	python -c "\
+	@echo "📊 Running performance benchmark..."
+	@python -c "\
 	import time, numpy as np, skops.io as sio, os; \
-	model = sio.load('Model/personality_classifier.skops', trusted=sio.get_untrusted_types()) if os.path.exists('Model/personality_classifier.skops') else exit(1); \
-	[print(f'Size {s}: {s/(time.time()-(t:=time.time())or(model.predict(np.random.rand(s,5)))and time.time()):.2f} pred/sec') for s in [1,10,100,1000] for t in [time.time()]]"
+	if not os.path.exists('Model/personality_classifier.skops'): \
+		print('❌ Model file not found'); \
+		exit(1); \
+	model = sio.load('Model/personality_classifier.skops', trusted=True); \
+	print('✅ Model loaded successfully'); \
+	test_sizes = [1, 10, 100, 1000]; \
+	for size in test_sizes: \
+		X_test = np.random.rand(size, 5); \
+		start_time = time.time(); \
+		predictions = model.predict(X_test); \
+		duration = time.time() - start_time; \
+		throughput = size / duration if duration > 0 else 0; \
+		latency = (duration * 1000) / size if size > 0 else 0; \
+		print(f'Size {size:4d}: {throughput:8.2f} pred/sec, {latency:6.2f}ms/pred'); \
+	print('✅ Benchmark completed')"
 
 health-check:
-	python -c "\
+	@echo "🔍 System Health Check:"
+	@python -c "\
 	import os, pandas as pd; \
-	print('🔍 Health Check:'); \
-	print('✅ Data exists' if os.path.exists('Data/personality_datasert.csv') else '❌ Data missing'); \
-	[print(f'✅ {f} exists' if os.path.exists(f) else f'❌ {f} missing') for f in ['Model/personality_classifier.skops', 'Results/metrics.txt']]"
+	checks = [ \
+		('Data exists', os.path.exists('Data/personality_datasert.csv')), \
+		('Model exists', os.path.exists('Model/personality_classifier.skops')), \
+		('Encoder exists', os.path.exists('Model/label_encoder.skops')), \
+		('Features exists', os.path.exists('Model/feature_names.skops')), \
+		('Results exists', os.path.exists('Results/metrics.txt')), \
+		('Training script exists', os.path.exists('train.py')), \
+		('App script exists', os.path.exists('App/app.py')) \
+	]; \
+	all_passed = True; \
+	for check_name, passed in checks: \
+		status = '✅' if passed else '❌'; \
+		print(f'{status} {check_name}'); \
+		if not passed: all_passed = False; \
+	print('\\n' + ('✅ All health checks passed!' if all_passed else '❌ Some health checks failed!')); \
+	exit(0 if all_passed else 1)"
 
 # Git operations
 update-branch:
